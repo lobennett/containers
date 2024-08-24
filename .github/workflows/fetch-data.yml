@@ -1,0 +1,37 @@
+name: Fetch data from Expfactory Deploy
+
+on:
+  # schedule:
+  #   # Runs at 00:00 on the first day of every month
+  #   - cron: '0 0 1 * *'
+  push:
+    branches: ['main']
+  pull_request:
+    branches: ['main']
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build the Docker image
+        run: |
+          cd examples/fetch-data/ && docker build --tag devloganbennett/github-actions:latest --build-arg API_TOKEN=${{ secrets.API_TOKEN }} .
+        env:
+          API_TOKEN: ${{ secrets.API_TOKEN }}
+      - name: Run the Docker image
+        run: |
+          docker run --name fetch_data -e API_TOKEN=${{ secrets.API_TOKEN }} devloganbennett/github-actions:latest
+      - name: Copy logs from container
+        run: |
+          docker cp fetch_data:/code/out/. ./examples/fetch-data/out/
+      - name: Commit logs
+        run: |
+          git config --local user.email "bennett.j.logan@gmail.com"
+          git config --local user.name "Logan Bennett"
+          git add examples/fetch-data/out/*
+          git commit -m "Update logs"
+          git push https://${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }} HEAD:main
